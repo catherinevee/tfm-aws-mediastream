@@ -1,0 +1,56 @@
+# Example Terraform Variables File
+# Copy this file to terraform.tfvars and customize the values
+
+# Project Configuration
+project_name = "my-media-streaming"
+environment  = "prod"
+
+# AWS Region
+# aws_region = "us-east-1"
+
+# Feature Toggles
+enable_video_processing = true
+enable_live_streaming   = true
+enable_content_delivery = true
+
+# S3 Configuration
+enable_versioning       = true
+s3_encryption_algorithm = "AES256"
+# kms_key_id            = "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+
+# CloudFront Configuration
+cloudfront_price_class           = "PriceClass_100"
+cloudfront_viewer_protocol_policy = "redirect-to-https"
+# cloudfront_certificate_arn     = "arn:aws:acm:us-east-1:123456789012:certificate/12345678-1234-1234-1234-123456789012"
+
+# MediaConvert Configuration
+mediaconvert_queue_priority = 0
+# mediaconvert_role_arn     = "arn:aws:iam::123456789012:role/MediaConvertRole"
+
+# MediaLive Configuration
+medialive_input_type    = "RTMP_PUSH"
+medialive_channel_class = "SINGLE_PIPELINE"
+
+# MediaPackage Configuration
+mediapackage_segment_duration = 6
+mediapackage_manifest_window  = 60
+
+# DASH and DRM Configuration
+enable_dash = true
+enable_drm  = false
+# drm_key_provider_url = "https://your-drm-provider.com/speke"
+
+# Monitoring
+enable_cloudwatch_logs = true
+log_retention_days     = 30
+
+# Cost Optimization
+enable_intelligent_tiering = true
+
+# Tags
+tags = {
+  Project     = "MediaStreaming"
+  Owner       = "MediaTeam"
+  Environment = "Production"
+  CostCenter  = "Engineering"
+}
