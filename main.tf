@@ -1,5 +1,14 @@
-# AWS Media Streaming Terraform Module
-# Comprehensive solution for video processing, live streaming, and content delivery
+# ==============================================================================
+# AWS MEDIA STREAMING TERRAFORM MODULE - ENHANCED FOR MAXIMUM CUSTOMIZABILITY
+# ==============================================================================
+# This module provides comprehensive media streaming capabilities including:
+# - Video processing with AWS MediaConvert and advanced encoding profiles
+# - Live streaming with AWS MediaLive, MediaPackage, and low-latency options
+# - Content delivery with CloudFront CDN and global edge optimization
+# - S3 storage with lifecycle management and cost optimization
+# - DRM protection with SPEKE integration for content security
+# - Monitoring and analytics with CloudWatch and custom metrics
+# Default values are optimized for production use and entertainment industry standards
 
 terraform {
   required_version = ">= 1.0"
@@ -8,25 +17,109 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.1"
+    }
   }
 }
 
-# Data sources for common resources
+# ==============================================================================
+# DATA SOURCES - DYNAMIC RESOURCE DISCOVERY
+# ==============================================================================
+
+# Current AWS account information for resource naming and policies
 data "aws_caller_identity" "current" {}
+
+# Current AWS region for regional resource configuration
 data "aws_region" "current" {}
 
-# Common tags for all resources
+# Availability zones for multi-AZ deployments
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+# Default VPC for network configuration (if not specified)
+data "aws_vpc" "default" {
+  count   = var.vpc_id == null ? 1 : 0
+  default = true
+}
+
+# Subnets for MediaLive and other network resources
+data "aws_subnets" "default" {
+  count = var.vpc_id == null ? 1 : 0
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default[0].id]
+  }
+}
+
+# ==============================================================================
+# RANDOM RESOURCES - UNIQUE NAMING
+# ==============================================================================
+
+# Random suffix for globally unique S3 bucket names
+# Ensures bucket names don't conflict across AWS accounts
+random_id "bucket_suffix" {
+  byte_length = 4
+}
+
+# Random password for MediaLive input security (if needed)
+random_password "medialive_input_key" {
+  count   = var.enable_live_streaming && var.medialive_input_security_enabled ? 1 : 0
+  length  = 32
+  special = false
+}
+
+# ==============================================================================
+# LOCAL VALUES - COMPUTED CONFIGURATIONS
+# ==============================================================================
+
 locals {
+  # Comprehensive tagging strategy
+  # Combines user tags with automatic module tags for complete resource tracking
   common_tags = merge(
-    var.tags,
+    var.tags,                                    # User-provided tags
     {
-      Module      = "tfm-aws-mediastream"
-      Environment = var.environment
-      ManagedBy   = "Terraform"
-      CreatedBy   = data.aws_caller_identity.current.user_id
-      Region      = data.aws_region.current.name
+      Module         = "tfm-aws-mediastream"     # Module identifier
+      Environment    = var.environment           # Environment classification
+      ManagedBy      = "Terraform"              # Management tool
+      CreatedBy      = data.aws_caller_identity.current.user_id
+      Region         = data.aws_region.current.name
+      Project        = var.project_name          # Project association
+      CostCenter     = var.cost_center           # Billing allocation
+      Owner          = var.owner                 # Resource ownership
+      Compliance     = var.compliance_framework  # Regulatory compliance
+      DataClass      = var.data_classification   # Data sensitivity
+      BackupRequired = var.backup_required       # Backup policy
+      CreatedDate    = formatdate("YYYY-MM-DD", timestamp())
     }
   )
+  
+  # VPC configuration - uses provided VPC or default VPC
+  vpc_id = var.vpc_id != null ? var.vpc_id : (
+    length(data.aws_vpc.default) > 0 ? data.aws_vpc.default[0].id : null
+  )
+  
+  # Subnet configuration for multi-AZ deployments
+  subnet_ids = var.subnet_ids != null && length(var.subnet_ids) > 0 ? var.subnet_ids : (
+    length(data.aws_subnets.default) > 0 ? data.aws_subnets.default[0].ids : []
+  )
+  
+  # S3 bucket names with unique suffixes
+  source_bucket_name = "${var.project_name}-source-content-${random_id.bucket_suffix.hex}"
+  processed_bucket_name = "${var.project_name}-processed-content-${random_id.bucket_suffix.hex}"
+  
+  # CloudFront origin domain names
+  source_origin_domain = var.enable_video_processing || var.enable_content_delivery ? aws_s3_bucket.source_content[0].bucket_regional_domain_name : null
+  processed_origin_domain = var.enable_video_processing ? aws_s3_bucket.processed_content[0].bucket_regional_domain_name : null
+  
+  # MediaPackage endpoint URLs for live streaming
+  mediapackage_endpoints = var.enable_live_streaming ? {
+    hls  = module.live_streaming[0].mediapackage_hls_endpoint
+    dash = module.live_streaming[0].mediapackage_dash_endpoint
+    mss  = module.live_streaming[0].mediapackage_mss_endpoint
+  } : {}
 }
 
 # S3 Buckets for media storage

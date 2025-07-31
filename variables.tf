@@ -28,6 +28,121 @@ variable "tags" {
   default     = {}
 }
 
+# ==============================================================================
+# ENHANCED TAGGING AND METADATA VARIABLES
+# ==============================================================================
+
+variable "cost_center" {
+  description = "Cost center for billing allocation and resource tracking"
+  type        = string
+  default     = "engineering"
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9-_]+$", var.cost_center))
+    error_message = "Cost center must contain only alphanumeric characters, hyphens, and underscores."
+  }
+}
+
+variable "owner" {
+  description = "Owner or team responsible for the media streaming resources"
+  type        = string
+  default     = "media-team"
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9-_@.]+$", var.owner))
+    error_message = "Owner must be a valid identifier (alphanumeric, hyphens, underscores, @, .)."
+  }
+}
+
+variable "compliance_framework" {
+  description = "Compliance framework requirements (e.g., SOC2, PCI-DSS, HIPAA)"
+  type        = string
+  default     = "none"
+  validation {
+    condition = contains([
+      "none", "SOC2", "PCI-DSS", "HIPAA", "GDPR", "FedRAMP", "ISO27001"
+    ], var.compliance_framework)
+    error_message = "Compliance framework must be one of: none, SOC2, PCI-DSS, HIPAA, GDPR, FedRAMP, ISO27001."
+  }
+}
+
+variable "data_classification" {
+  description = "Data classification level for media content (public, internal, confidential, restricted)"
+  type        = string
+  default     = "internal"
+  validation {
+    condition = contains([
+      "public", "internal", "confidential", "restricted"
+    ], var.data_classification)
+    error_message = "Data classification must be one of: public, internal, confidential, restricted."
+  }
+}
+
+variable "backup_required" {
+  description = "Whether backup is required for media content (affects lifecycle policies)"
+  type        = bool
+  default     = true
+}
+
+# ==============================================================================
+# NETWORKING AND VPC CONFIGURATION VARIABLES
+# ==============================================================================
+
+variable "vpc_id" {
+  description = "VPC ID for MediaLive and other network resources (uses default VPC if not specified)"
+  type        = string
+  default     = null
+  validation {
+    condition     = var.vpc_id == null || can(regex("^vpc-[a-z0-9]+$", var.vpc_id))
+    error_message = "VPC ID must be a valid AWS VPC identifier (vpc-xxxxxxxx) or null."
+  }
+}
+
+variable "subnet_ids" {
+  description = "List of subnet IDs for MediaLive and other network resources (uses default subnets if not specified)"
+  type        = list(string)
+  default     = null
+  validation {
+    condition = var.subnet_ids == null || (
+      length(var.subnet_ids) >= 2 && 
+      alltrue([for id in var.subnet_ids : can(regex("^subnet-[a-z0-9]+$", id))])
+    )
+    error_message = "Subnet IDs must be valid AWS subnet identifiers and at least 2 subnets are required for MediaLive."
+  }
+}
+
+variable "security_group_ids" {
+  description = "List of security group IDs for MediaLive inputs (created automatically if not specified)"
+  type        = list(string)
+  default     = []
+  validation {
+    condition = alltrue([
+      for id in var.security_group_ids : can(regex("^sg-[a-z0-9]+$", id))
+    ])
+    error_message = "Security group IDs must be valid AWS security group identifiers."
+  }
+}
+
+# ==============================================================================
+# MEDIALIVE SECURITY AND INPUT CONFIGURATION
+# ==============================================================================
+
+variable "medialive_input_security_enabled" {
+  description = "Enable input security for MediaLive channels (recommended for production)"
+  type        = bool
+  default     = true
+}
+
+variable "medialive_input_whitelist_cidrs" {
+  description = "List of CIDR blocks allowed to push to MediaLive inputs (empty allows all)"
+  type        = list(string)
+  default     = []
+  validation {
+    condition = alltrue([
+      for cidr in var.medialive_input_whitelist_cidrs : can(cidrhost(cidr, 0))
+    ])
+    error_message = "All CIDR blocks must be valid IPv4 CIDR notation."
+  }
+}
+
 # Feature Toggles
 variable "enable_video_processing" {
   description = "Enable video processing with MediaConvert"
